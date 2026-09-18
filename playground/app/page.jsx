@@ -183,7 +183,7 @@ export default function Page() {
       <p className="sub">
         Press a button to set off an error. The signal98 SDK catches it and fires it into the{" "}
         <b>Win98 desktop&apos;s ingest</b> — open its <b>Raw Feed</b> window (http://localhost:3001){" "}
-        to watch each event get judged live. {rule && <>Paging rule: <code>{rule}</code>}
+        to watch each event get judged live. {rule && <>Paging rule: <code>{rule}</code></>}
       </p>
       {down && (
         <p className="down">

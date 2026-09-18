@@ -15,6 +15,17 @@ cleanup() {
 }
 trap cleanup INT TERM
 
+# Free both ports first: a previous run (or a zombie from one) may still hold
+# them, and a stale server would silently keep serving old code.
+for p in 3000 3001; do
+  pid=$(lsof -ti tcp:$p 2>/dev/null || true)
+  if [ -n "$pid" ]; then
+    echo "→ port $p is taken (process $pid) — stopping it…"
+    kill "$pid" 2>/dev/null || true
+    sleep 1
+  fi
+done
+
 # win98 desktop (backend: ingest + judging) → :3001 — starts FIRST
 if [ ! -d "$DESKTOP_DIR" ]; then
   echo "✗ win98 desktop not found at $DESKTOP_DIR"

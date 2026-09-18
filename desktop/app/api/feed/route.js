@@ -1,4 +1,4 @@
-import { listEvents, resetEvents } from "../../../lib/store.js";
+import { listEvents, clearEvents } from "../../../lib/store.js";
 import { withCors, optionsResponse } from "../../../lib/cors.js";
 
 export const dynamic = "force-dynamic";
@@ -17,8 +17,8 @@ export async function GET() {
   );
 }
 
-// Clear back to the bundled history.
+// Truly empty the feed.
 export async function DELETE() {
-  resetEvents();
+  clearEvents();
   return withCors(Response.json({ ok: true }));
 }

@@ -57,7 +57,7 @@ export default function RecycleBin({ onEmptyChange }) {
             ))}
           </tbody>
         </table>
-        {emptied && <div style={{ padding: 30, textAlign: "center", color: "#808080" }}>The Recycle Bin is empty. Ahh, silence.</div>}
+        {(emptied || suppressed.length === 0) && <div style={{ padding: 30, textAlign: "center", color: "#808080" }}>The Recycle Bin is empty. Ahh, silence.</div>}
       </div>
       <div className="statusbar">
         <div className="cell grow sunken-thin">{emptied ? 0 : suppressed.length} object(s)</div>

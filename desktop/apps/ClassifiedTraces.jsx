@@ -97,6 +97,13 @@ export default function ClassifiedTraces({ fixedIds = new Set() }) {
             ))}
           </tr></thead>
           <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={COLS.length} style={{ textAlign: "center", color: "#808080", padding: 24 }}>
+                  no events yet — fire the playground (:3000) to set one off
+                </td>
+              </tr>
+            )}
             {rows.map(e => (
               <tr key={e.id} className={e.paged && !e.fixed ? "paged" : ""}>
                 <td>{e.time}</td><td>{e.service}</td><td>{e.level}</td>

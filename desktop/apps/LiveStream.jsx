@@ -58,6 +58,11 @@ export default function LiveStream() {
         <span style={{ color: "#333" }}>live from /api/ingest — fire the playground →</span>
       </div>
       <div className="stream-log sunken" ref={boxRef}>
+        {lines.length === 0 && (
+          <div className="ln" style={{ color: "#808080" }}>
+            feed is empty — set off an error from the playground (:3000) and watch it land here.
+          </div>
+        )}
         {lines.map((e) => {
           const { tag, j } = fmt(e);
           return (

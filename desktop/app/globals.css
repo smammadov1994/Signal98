@@ -79,6 +79,12 @@ button { font-family: inherit; font-size: 11px; }
 }
 .title-bar.inactive { background: linear-gradient(90deg, #808080, #b5b5b5); color: #e8e8e8; }
 .title-bar .ticon { width: 16px; height: 16px; flex: 0 0 auto; }
+/* the shared glyphs default to 40px (desktop icons use the big size) —
+   force them down to 16px in the window chrome and taskbar so the art
+   doesn't spill over the title text */
+.title-bar .ticon svg, .task-btn .ticon svg {
+  width: 16px !important; height: 16px !important; display: block;
+}
 .title-bar .ttitle { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .title-btns { display: flex; gap: 2px; }
 .tbtn {

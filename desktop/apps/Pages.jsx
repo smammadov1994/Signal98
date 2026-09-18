@@ -35,6 +35,11 @@ export default function Pages({ fixedIds = new Set() }) {
         <span style={{ color: "#333" }}>rule: urgent ≥ 0.70 and user-facing ≥ 0.60 and novel ≥ 0.55</span>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "2px 3px 3px 3px" }}>
+        {paged.length === 0 && (
+          <div style={{ padding: 30, textAlign: "center", color: "#808080" }}>
+            no pages yet — set off an error from the playground (:3000) and JEV will decide if it pages.
+          </div>
+        )}
         {paged.map(e => {
           const fixed = fixedIds.has(e.id);
           const j = e.judgments || {};
