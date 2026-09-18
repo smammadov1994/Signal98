@@ -1,0 +1,26 @@
+{
+  "name": "signal98",
+  "version": "0.1.0",
+  "description": "JEV-powered error and event capture SDK. Install it, call init(), and your app's errors are caught and semantically judged at ingest.",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./browser": "./src/browser.js",
+    "./node": "./src/node.js",
+    "./react": "./src/react.js"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=16"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "demo:server": "node example/server.js",
+    "demo:node": "node example/node-demo.js"
+  }
+}
