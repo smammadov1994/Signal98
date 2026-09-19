@@ -3,17 +3,31 @@
 // then in another terminal:
 //   node example/node-demo.js
 
-import { init, capture, captureException, wrap, addStep, flush } from "../src/index.js";
+import { init, capture, captureException, wrap, addStep, flush, log } from "../src/index.js";
+
+// The example server picks a free port and prints this exact command. No default: guessing a
+// port means POSTing test errors into whatever unrelated service happens to live there.
+const HOST = process.env.SIGNAL98_HOST;
+if (!HOST) {
+  console.error("Set SIGNAL98_HOST (the example server prints it), e.g.\n  SIGNAL98_HOST=http://localhost:54321 node example/node-demo.js");
+  process.exit(1);
+}
 
 init({
-  endpoint: "http://localhost:8787/api/ingest",
+  host: HOST,
+  apiKey: "demo-project",
   environment: "demo",
-  release: "0.1.0",
-  autoCapture: { errors: true, rejections: true },
+  release: "0.2.0",
+  service: "node-demo",
+  // By default signal98 lets an uncaught exception end the process, exactly as
+  // Node would without it (after flushing the report). This demo wants to show
+  // several crashes in one run, so it opts out.
+  autoCapture: { errors: true, rejections: true, exitOnUncaught: false },
 });
 
 addStep("demo started");
-capture("demo_boot", { version: "0.1.0" });
+capture("demo_boot", { version: "0.2.0" });
+log.info("demo booted", { pid: process.pid });
 
 // 1. manual capture of a caught error
 try {

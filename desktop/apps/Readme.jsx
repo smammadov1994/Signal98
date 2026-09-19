@@ -1,51 +1,61 @@
 "use client";
 
-export default function Readme() {
+export default function Readme({ wm }) {
+  const link = (app, text, params) => (
+    <a href="#" onClick={(e) => { e.preventDefault(); wm?.open(app, params); }} style={{ color: "#000080" }}>{text}</a>
+  );
   return (
     <>
       <div className="menubar"><span>File</span><span>Edit</span><span>Search</span><span>Help</span></div>
-      <div className="notepad sunken">
-        <h3>signal.txt — what is this?</h3>
+      <div className="notepad sunken selectable" style={{ flex: 1, overflow: "auto" }}>
+        <h3>signal98 — what is this?</h3>
         <p>
-          signal is a toy for a different kind of observability. Traditional alerting
-          (Datadog, PagerDuty) watches <b>metrics</b> and fires when a hand-tuned
-          threshold breaks. That gives you alert fatigue: static rules can&apos;t tell a
-          real incident from noise that happens to look spiky.
+          A monitoring system in the shape of PostHog or Datadog — error tracking, product and web
+          analytics, sessions, people, feature flags, alerts — where the thing deciding what matters is{" "}
+          <b>JEV</b>, TypeSafe&apos;s System One model, not a hand-tuned threshold.
         </p>
         <p>
-          signal flips it: every log event is judged by <b>JEV</b> (TypeSafe&apos;s System
-          One model) the moment it arrives. JEV returns typed judgments —{" "}
-          <code>is_urgent?</code> <code>is_user_facing?</code> <code>is_novel?</code>{" "}
-          <code>severity</code> — as probabilities, in real time. Paging becomes a
-          small routing rule <b>over meaning</b>, not over metrics:
+          Traditional alerting counts. It pages you because something happened 50 times, whether or not
+          anyone cares. signal98 asks JEV typed questions about <i>meaning</i> — which area broke, how
+          severe, is a user feeling it, is it your code, is money involved, is it noise — and gets back
+          calibrated probabilities. Paging is then a small rule over those answers.
         </p>
-        <p><code>page when urgent ≥ 0.70 and user-facing ≥ 0.60 and novel ≥ 0.55</code></p>
-        <h3>the folders on this desktop</h3>
+        <h3>why it is cheap</h3>
         <p>
-          <b>JEV Verdicts</b> — every trace with its JEV classification values.
-          Sort by any column. Filter to Paged or Suppressed.<br />
-          <b>Raw Feed</b> — watch events get judged as they arrive.<br />
-          <b>Pages</b> — the 3 events that crossed the rule, with the receipts.<br />
-          <b>Recycle Bin</b> — the 13 suppressed alerts. Deleted. Bothering no one.
+          JEV judges <b>issues</b>, not events. The first occurrence of a bug is classified with one
+          request (a dozen questions answered in parallel against one small state); the next ten
+          thousand occurrences inherit that verdict for free. An issue is only re-read when its story
+          changes: it regresses, or its volume grows by an order of magnitude. Sessions are read once
+          they go quiet; custom event names once, ever. See {link("settings", "Control Panel → JEV", { tab: "jev" })} for
+          live token usage and cost.
         </p>
-        <h3>the interesting bit</h3>
+        <h3>the desktop</h3>
         <p>
-          <code>disk usage 91% on /var</code> scored urgent 0.71 and novel 0.73 —
-          a threshold alerter pages you for this. But user-facing was 0.26, so
-          signal suppressed it. That&apos;s the whole idea: the system distinguishes{" "}
-          <i>&ldquo;something is wrong&rdquo;</i> from <i>&ldquo;something is wrong and users feel it&rdquo;</i>.
+          {link("feed", "Live Feed")} — every event as it lands; verdicts fill in a moment later.<br />
+          {link("issues", "Issues")} — grouped errors, failed requests, error logs and UX friction, ranked by JEV priority.<br />
+          {link("pages", "Pages")} — what is worth waking someone up for, with the receipts.<br />
+          {link("insights", "Insights")} — trends, funnels, retention, and a lifecycle view JEV builds from your event names.<br />
+          {link("web", "Web Analytics")} — visitors, pages, referrers, devices, web vitals.<br />
+          {link("sessions", "Sessions")} — timelines, with JEV&apos;s read of intent, outcome and frustration.<br />
+          {link("persons", "People")} — who they are and what they hit.<br />
+          {link("alerts", "Alerts")} — rules, email / push / Slack / webhook channels, and the outbox.<br />
+          {link("runs", "Ghost Agents")} — coding agents the ghost dispatched, with their diffs.<br />
+          {link("recycle", "Recycle Bin")} — what JEV called noise. Bothering no one.
         </p>
         <h3>the ghost</h3>
         <p>
-          The little 8-bit ghost on the desktop is the fixer. <b>Drag it and drop
-          it</b> onto Pages, JEV Verdicts, or the Recycle Bin. JEV looks at the
-          semantic judgments of whatever you dropped it on and <b>routes</b> — it
-          picks one of 10 ghost versions (SLEUTH, PATCHER, WATCHER, ORACLE,
-          QUARANTINE, SCRIBE, HERALD, JANITOR, SURGEON, DREAMER), each with its
-          own permissions, system prompt, and color. The ghost asks if you want it
-          unleashed; say yes and it fixes the issues (classic LLM under the hood —
-          DeepSeek — JEV only chooses <i>which</i> ghost shows up). Fixed issues get
-          marked <b>EXORCISED</b>.
+          The ghost in the corner is Clippy for production. When JEV pages, it speaks up and offers the
+          fix. Click it for the menu; drag it onto an issue to haunt that one. In <b>auto mode</b> it
+          dispatches a coding agent — on its own git branch, in a worktree, without a shell — whenever
+          JEV is confident an issue is a bounded defect in your code. If the bug comes back after a
+          fix, the issue regresses, JEV reads it again, and the ghost goes again with its earlier
+          attempt in hand.
+        </p>
+        <h3>honesty</h3>
+        <p>
+          Without <code>TYPESAFE_API_KEY</code> in <code>desktop/.env.local</code> a keyword heuristic
+          judges instead. Everything it touches is labelled <code>heuristic</code>; nothing pretends to
+          be JEV. Add a key, restart, and existing verdicts are upgraded in the background.
         </p>
       </div>
     </>

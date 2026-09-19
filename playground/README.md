@@ -1,22 +1,19 @@
-# playground — the trigger panel
+# playground — ghost mart
 
-A tiny React app for setting off errors through the real `signal98` SDK.
+A small Next.js shop wrapped with the `signal98` SDK: `app/signal.jsx` (browser) and `instrumentation.js` (server — without it, crashes during server rendering and in route handlers are invisible).
+It fires into the monitor's ingest at `http://localhost:3001` with the local dev key.
 
-- Buttons trigger different errors: auto-capture, `wrap()`, manual
-  `captureException`, `console.error`, custom events.
-- The SDK fires them into the **Win98 desktop's ingest**
-  (`http://localhost:3001/api/ingest`) — that's where JEV judges them.
-- The right panel shows what you fired and its verdict; the desktop's
-  **Raw Feed** window shows the full live stream.
+Genuine bugs, left in on purpose so the ghost has something to fix:
 
-## Run
+| where | what happens |
+|---|---|
+| `app/product/[id]/page.jsx` | **Fog in a Can** has no `specs` → `TypeError` during the **server** render → HTTP 500. No browser code runs, so only `instrumentation.js` (`onRequestError`) can report it; a client-side navigation to the same page is caught by the error boundary instead |
+| `app/cart/page.jsx` → `discountFor` | coupon **GHOST10** is stored as `"10%"` → `NaN` → throws; the button appears to do nothing (rage-click it) |
+| `app/cart/page.jsx` | **Compare prices** has no handler → dead click |
+| `app/api/pay/route.js` | totals over $100 read `config.fraud.reviewer` → 500 → failed payment |
+| `app/api/recommendations/route.js` | ~5 s response → slow-request report |
 
-```bash
-cd ~/signal98
-npm run dev
-```
+`/chaos` has one-click triggers for pages, tickets, noise, product events and an error flood.
 
-That boots the desktop (:3001, the backend) and this playground (:3000, the
-trigger panel). The judging key (`TYPESAFE_API_KEY`) lives in
-`../desktop/.env.local` now, since the desktop does the judging.
-Without it, a local heuristic judges instead.
+Run the whole stack from the repo root with `npm run dev`. Point the SDK elsewhere with
+`NEXT_PUBLIC_SIGNAL98_HOST` / `NEXT_PUBLIC_SIGNAL98_KEY`.

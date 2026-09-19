@@ -3,42 +3,110 @@
   <head>
     <meta charset="utf-8" />
     <title>signal98 browser demo</title>
+    <!-- Optional stub: lets the page call signal98 before the script has loaded. -->
+    <script>
+      window.signal98 = window.signal98 || { _q: [] };
+      signal98._q.push(["register", { demo: true }]);
+      signal98._q.push(["capture", "demo_page_opened"]);
+    </script>
+    <!-- The whole integration: one tag. `npm run build` produces the file, the
+         example server serves it as /s98.js (the desktop app serves the same
+         file from its public/ folder). -->
+    <script src="/s98.js" data-key="demo-project" data-host="__ORIGIN__" data-environment="demo" data-release="0.2.0" defer></script>
   </head>
-  <body style="font-family: sans-serif; padding: 2rem; max-width: 560px;">
+  <body style="font-family: sans-serif; padding: 2rem; max-width: 640px;">
     <h1>signal98 browser demo</h1>
     <p>
-      Serves the SDK straight from <code>src/</code> as an ES module — no build step.
-      Start the example server (<code>node example/server.js</code>), serve this
-      folder (<code>npx serve example</code>), open the page, and click the buttons.
-      Events POST to <code>http://localhost:8787/api/ingest</code>.
+      Run <code>npm run build</code>, then <code>node example/server.js</code>, and open
+      <a href="__ORIGIN__/">__ORIGIN__/</a>. This page uses the script-tag build
+      (<code>dist/signal98.min.js</code>, global <code>signal98</code>). Watch the server log while you click.
     </p>
+
+    <h3>Errors</h3>
     <p>
       <button id="boom">throw uncaught error</button>
       <button id="rej">unhandled rejection</button>
       <button id="manual">manual captureException</button>
+      <button id="cause">error with a cause chain</button>
     </p>
-    <script type="module">
-      import { init, captureException, wrap } from "../src/index.js";
 
-      init({ endpoint: "http://localhost:8787/api/ingest", environment: "demo" });
+    <h3>Behaviour</h3>
+    <p>
+      <button id="dead">dead button (does nothing)</button>
+      <button id="rage">click me 3× fast (rage click)</button>
+      <button id="nav">pushState navigation</button>
+      <a href="#section-2">hash link</a>
+    </p>
 
-      document.getElementById("boom").onclick = () => {
+    <h3>Network and logs</h3>
+    <p>
+      <button id="net">fetch a failing endpoint (503)</button>
+      <button id="log">log.warn(...)</button>
+      <button id="ident">identify("user_42")</button>
+      <button id="flag">read a feature flag</button>
+    </p>
+
+    <h3>Privacy</h3>
+    <form id="signup" onsubmit="return false">
+      <input name="email" type="email" placeholder="typed values are never captured" />
+      <button type="submit">submit</button>
+    </form>
+    <p>
+      <button data-s98-mask>masked text: jane@example.com</button>
+      <button data-s98-ignore>ignored entirely</button>
+    </p>
+    <pre id="out" style="background: #f4f4f4; padding: 1rem; min-height: 3rem;"></pre>
+
+    <script>
+      const out = (msg) => (document.getElementById("out").textContent = msg);
+      const on = (id, fn) => (document.getElementById(id).onclick = fn);
+
+      on("boom", () => {
         throw new Error("user clicked the boom button");
-      };
-      document.getElementById("rej").onclick = () => {
+      });
+      on("rej", () => {
         Promise.reject(new Error("avatar upload failed"));
-      };
-      const saveSettings = wrap(
-        () => {
-          try {
-            JSON.parse("nope");
-          } catch (e) {
-            captureException(e, { where: "settings-save" });
-          }
-        },
-        { name: "settings-save" }
-      );
-      document.getElementById("manual").onclick = saveSettings;
+      });
+      on("cause", () => {
+        try {
+          JSON.parse("{oops");
+        } catch (cause) {
+          throw new Error("settings could not be loaded", { cause });
+        }
+      });
+      on("rage", () => {});
+      // (no handler at all on #dead — that is the point)
+
+      // Everything below touches the SDK, so wait for the deferred script.
+      window.addEventListener("DOMContentLoaded", () => {
+        const saveSettings = signal98.wrap(
+          () => {
+            try {
+              JSON.parse("nope");
+            } catch (e) {
+              signal98.captureException(e, { where: "settings-save" });
+              out("captured a handled exception");
+            }
+          },
+          { name: "settings-save" }
+        );
+        on("manual", saveSettings);
+        on("nav", () => {
+          history.pushState({}, "", "/page-" + Math.floor(Math.random() * 100));
+          out("navigated to " + location.pathname + " ($pageleave + $pageview)");
+        });
+        on("net", () => fetch("/api/flaky").then((r) => out("GET /api/flaky -> " + r.status + " ($network_error)")));
+        on("log", () => {
+          signal98.log.warn("cart total looks wrong", { total: -5 });
+          out("sent a $log event");
+        });
+        on("ident", () => {
+          signal98.identify("user_42", { plan: "pro" });
+          out("distinct_id = " + signal98.getDistinctId());
+        });
+        on("flag", () => out("button-color = " + signal98.getFeatureFlag("button-color")));
+        signal98.onFeatureFlags((flags) => out("flags loaded: " + JSON.stringify(flags)));
+      });
     </script>
   </body>
 </html>

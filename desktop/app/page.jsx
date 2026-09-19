@@ -1,335 +1,234 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+// The window manager. Contract with the windows it hosts: docs/UI.md.
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import DesktopIcon from "../components/DesktopIcon";
 import Window from "../components/Window";
 import Taskbar from "../components/Taskbar";
-import { Folder, FileText, Trash, Stream, Bell, Exe } from "../components/icons";
-import Ghost, { GhostGlyph } from "../components/Ghost";
-import GhostDialog from "../components/GhostDialog";
-import ClassifiedTraces from "../apps/ClassifiedTraces";
-import LiveStream from "../apps/LiveStream";
-import Pages from "../apps/Pages";
-import RecycleBin from "../apps/RecycleBin";
-import Readme from "../apps/Readme";
-import GhostReport from "../apps/GhostReport";
-import { routeGhost } from "../lib/jevRouter";
-
-const GHOST_IDLE = "#e8e8ff";
-
-// ghost rests in the bottom-right corner of the desktop
-const ghostHome = (desktopEl) => {
-  if (!desktopEl) return { x: 24, y: 330 };
-  const r = desktopEl.getBoundingClientRect();
-  return { x: Math.max(8, r.width - 96), y: Math.max(8, r.height - 116) };
-};
+import GhostAssistant from "../components/GhostAssistant";
+import { GhostGlyph } from "../components/Ghost";
+import { Exe } from "../components/icons";
+import { useApi, api } from "../lib/client";
+import { useTheme } from "../lib/theme";
+import { APPS, DESKTOP_ICONS, glyph as baseGlyph } from "../components/registry";
+import SetupWizard from "../components/SetupWizard";
+import ModernShell from "../components/ModernShell";
 
 let zTop = 10;
 let cascade = 0;
 
-const ICONS = [
-  { id: "traces", label: "JEV Verdicts", glyph: "traces" },
-  { id: "stream", label: "Raw Feed", glyph: "stream" },
-  { id: "pages", label: "Pages", glyph: "pages" },
-  { id: "recycle", label: "Recycle Bin", glyph: "recycle" },
-  { id: "readme", label: "readme.txt", glyph: "readme" },
-];
+function Login() {
+  const [token, setToken] = useState("");
+  const [error, setError] = useState(null);
+  const submit = async (e) => {
+    e.preventDefault();
+    try {
+      await api("login", { method: "POST", body: { token } });
+      window.location.reload(); // the shared event stream must reconnect with the cookie
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  return (
+    <div className="desktop" style={{ inset: 0 }}>
+      <div className="dialog-veil" style={{ background: "none" }}>
+        <form className="dialog raised" onSubmit={submit} style={{ width: 360 }}>
+          <div className="title-bar"><span className="ttitle">Welcome to signal98</span></div>
+          <div className="dbody">
+            <GhostGlyph size={40} />
+            <div style={{ flex: 1 }}>
+              <div style={{ marginBottom: 8 }}>Type the admin token to log on to the monitor.</div>
+              <input className="in98" type="password" autoFocus value={token} onChange={(e) => setToken(e.target.value)} style={{ width: "100%" }} aria-label="admin token" />
+              {error && <div className="err" style={{ padding: "6px 0 0" }}>{error}</div>}
+            </div>
+          </div>
+          <div className="dbuttons"><button className="btn98" type="submit">OK</button></div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
-export default function Desktop() {
+// Picks the shell. Both shells get the same data and host the same apps (components/registry.jsx).
+export default function Monitor() {
+  const { theme, toggle } = useTheme();
+  const overview = useApi("overview", { every: 10_000, on: ["verdict", "issue"] });
+  const meta = useApi("meta", { on: ["settings"] });
+
+  const [setupOpen,setSetupOpen] = useState(false);
+  useEffect(()=>{if(meta.data?.setup?.required)setSetupOpen(true);},[meta.data?.setup?.required]);
+  useEffect(()=>{const open=()=>setSetupOpen(true);window.addEventListener("s98-open-setup",open);return()=>window.removeEventListener("s98-open-setup",open);},[]);
+
+  // SIGNAL98_ADMIN_TOKEN is set on the server and this browser has no session yet
+  if (overview.error === "admin token required" || meta.error === "admin token required") return <Login />;
+  if (!theme) return null; // the choice lives in localStorage: wait one tick rather than flash the wrong shell
+  return <><div inert={setupOpen} style={{display:"contents"}}>{theme === "modern"
+    ? <ModernShell overview={overview} meta={meta} onToggleTheme={toggle} />
+    : <Win98Desktop overview={overview} meta={meta} onToggleTheme={toggle} />}</div>{setupOpen&&<SetupWizard onClose={()=>{setSetupOpen(false);meta.reload();}}/>}</>;
+}
+
+function Win98Desktop({ overview, meta, onToggleTheme }) {
   const [windows, setWindows] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [selectedIcon, setSelectedIcon] = useState(null);
   const [startOpen, setStartOpen] = useState(false);
-  const [showShutdownConfirm, setShowShutdownConfirm] = useState(false);
+  const [confirmShutdown, setConfirmShutdown] = useState(false);
   const [shutDown, setShutDown] = useState(false);
-  const [feedEvents, setFeedEvents] = useState([]);
-  const [binEmptied, setBinEmptied] = useState(false);
-  const [ghostPos, setGhostPos] = useState(null);
-  const [ghostDrag, setGhostDrag] = useState(false);
+  const [binCount, setBinCount] = useState(null);
   const [hotTarget, setHotTarget] = useState(null);
-  const [ghostColor, setGhostColor] = useState(GHOST_IDLE);
-  const [summon, setSummon] = useState(null);
-  const [fixedIds, setFixedIds] = useState(() => new Set());
-  const [ghostReportData, setGhostReportData] = useState(null);
   const desktopRef = useRef(null);
-  const dragRef = useRef(false);
 
-  // park the ghost bottom-right on mount and when the window resizes
-  useEffect(() => {
-    setGhostPos(ghostHome(desktopRef.current));
-    const onResize = () => {
-      if (!dragRef.current) setGhostPos(ghostHome(desktopRef.current));
-    };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
+  const ghostSettings = meta.data?.project?.settings?.ghost;
 
-  // live event feed: the bundled history plus anything the playground
-  // (or any signal98 SDK) fires into /api/ingest. ghost routing, badges,
-  // and counts all read from this.
-  useEffect(() => {
-    let alive = true;
-    const poll = async () => {
-      try {
-        const r = await fetch("/api/feed", { cache: "no-store" });
-        const d = await r.json();
-        if (alive) setFeedEvents(d.events || []);
-      } catch {
-        /* backend not up yet */
-      }
-    };
-    poll();
-    const t = setInterval(poll, 2000);
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
-  }, []);
+  const binEmpty = (binCount ?? overview.data?.open_issues?.ignore ?? 0) === 0;
+  const glyph = (key, size) => baseGlyph(key, size, { binEmpty });
 
-  const glyphs = {
-    traces: <Folder color="#f5c542" />,
-    stream: <Stream />,
-    pages: <Bell />,
-    recycle: <Trash empty={binEmptied} />,
-    readme: <FileText />,
-    ghost: <GhostGlyph color={GHOST_IDLE} size={16} />,
-  };
-
-  const contentFor = (id) => {
-    switch (id) {
-      case "traces": return <ClassifiedTraces fixedIds={fixedIds} />;
-      case "stream": return <LiveStream />;
-      case "pages": return <Pages fixedIds={fixedIds} />;
-      case "recycle": return <RecycleBin onEmptyChange={(n) => setBinEmptied(n === 0)} />;
-      case "readme": return <Readme />;
-      case "ghost-report": return ghostReportData ? <GhostReport result={ghostReportData} /> : null;
-      default: return null;
-    }
-  };
-
-  const metaFor = (id) => {
-    switch (id) {
-      case "traces": return { title: "JEV Verdicts", icon: "traces", w: 640, h: 420 };
-      case "stream": return { title: "Raw Feed — JEV ingest", icon: "stream", w: 560, h: 380 };
-      case "pages": return { title: "Pages — tonight", icon: "pages", w: 560, h: 400 };
-      case "recycle": return { title: "Recycle Bin", icon: "recycle", w: 600, h: 380 };
-      case "readme": return { title: "readme.txt — Notepad", icon: "readme", w: 520, h: 420 };
-      case "ghost-report": return { title: "ghost report", icon: "ghost", w: 560, h: 440 };
-      default: return { title: id, icon: "readme", w: 480, h: 360 };
-    }
-  };
-
-  const openWindow = (id) => {
-    const meta = metaFor(id);
+  const open = useCallback((app, params = {}) => {
+    const def = APPS[app];
+    if (!def) return;
+    const id = def.multi ? `${app}:${params.id}` : app;
+    if (def.multi && (params.id === undefined || params.id === null)) return;
+    setStartOpen(false);
+    setActiveId(id);
     setWindows((ws) => {
-      const ex = ws.find((w) => w.id === id);
-      if (ex) {
-        setActiveId(id);
-        return ws.map((w) => (w.id === id ? { ...w, minimized: false, z: ++zTop } : w));
+      if (ws.some((w) => w.id === id)) {
+        // re-opening passes fresh params (e.g. "open Settings on the Ghost tab")
+        return ws.map((w) => (w.id === id ? { ...w, params: { ...w.params, ...params }, nonce: w.nonce + 1, minimized: false, z: ++zTop } : w));
       }
-      cascade = (cascade + 1) % 6;
-      setActiveId(id);
+      cascade = (cascade + 1) % 7;
+      const vw = window.innerWidth, vh = window.innerHeight - 30;
+      const w = Math.min(def.w, vw - 250), h = Math.min(def.h, vh - 40);
       return [...ws, {
-        id, title: meta.title, iconKey: meta.icon,
-        x: 120 + cascade * 28, y: 40 + cascade * 24,
-        w: meta.w, h: meta.h, z: ++zTop, minimized: false, maximized: false,
+        id, app, params, nonce: 0, title: def.title, iconKey: def.icon,
+        x: Math.max(8, Math.min(vw - w - 8, 236 + cascade * 26)), y: Math.max(4, Math.min(vh - h - 4, 16 + cascade * 22)),
+        w, h, z: ++zTop, minimized: false, maximized: false,
       }];
     });
-  };
+  }, []);
 
-  const openApp = (id) => openWindow(id);
-  const closeWindow = (id) => {
-    setWindows((ws) => ws.filter((w) => w.id !== id));
-    if (id === "ghost-report") setGhostReportData(null);
-    setActiveId((a) => {
-      if (a !== id) return a;
-      const rest = windows.filter((w) => w.id !== id && !w.minimized);
-      return rest.length ? rest[rest.length - 1].id : null;
+  const close = useCallback((id) => {
+    setWindows((ws) => {
+      const rest = ws.filter((w) => w.id !== id);
+      setActiveId((a) => (a !== id ? a : rest.filter((w) => !w.minimized).sort((p, q) => q.z - p.z)[0]?.id ?? null));
+      return rest;
     });
-  };
-  const focusWindow = (id) => {
+  }, []);
+  const focus = useCallback((id) => {
     setActiveId(id);
     setWindows((ws) => ws.map((w) => (w.id === id ? { ...w, z: ++zTop } : w)));
-  };
-  const minimizeWindow = (id) => setWindows((ws) => ws.map((w) => (w.id === id ? { ...w, minimized: true } : w)));
-  const maximizeWindow = (id) => setWindows((ws) => ws.map((w) => (w.id === id ? { ...w, maximized: !w.maximized } : w)));
-  const toggleMinimize = (id) => {
+  }, []);
+  const minimize = (id) => { setWindows((ws) => ws.map((w) => (w.id === id ? { ...w, minimized: true } : w))); setActiveId((a) => (a === id ? null : a)); };
+  const maximize = (id) => setWindows((ws) => ws.map((w) => (w.id === id ? { ...w, maximized: !w.maximized } : w)));
+  const taskClick = (id) => {
     const w = windows.find((x) => x.id === id);
     if (!w) return;
-    if (w.minimized) { focusWindow(id); setWindows((ws) => ws.map((x) => (x.id === id ? { ...x, minimized: false } : x))); }
-    else if (activeId === id) minimizeWindow(id);
-    else focusWindow(id);
+    if (w.minimized) { setWindows((ws) => ws.map((x) => (x.id === id ? { ...x, minimized: false, z: ++zTop } : x))); setActiveId(id); }
+    else if (activeId === id) minimize(id);
+    else focus(id);
   };
 
-  // ---------- ghost: drag, drop, summon, unleash ----------
-  const summonGhost = (target) => {
-    const judged = feedEvents.filter((e) => e.status === "judged" && e.judgments);
-    const evts =
-      target === "pages" ? judged.filter((e) => e.paged)
-      : target === "recycle" ? judged.filter((e) => !e.paged)
-      : judged;
-    if (!evts.length) return;
-    const route = routeGhost(evts);
-    setGhostColor(route.ghost.color);
-    setSummon({ target, events: evts, route, phase: "ask" });
-  };
+  // first paint: the two windows that show the product is alive, plus deep links from alerts
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    if (p.get("issue")) { open("issues"); open("issue", { id: Number(p.get("issue")) }); }
+    else if (p.get("session")) { open("sessions"); open("session", { id: p.get("session") }); }
+    else { open("overview"); open("issues"); open("feed"); }
+    // a clicked push notification asks an already-open desktop to navigate
+    const onMsg = (e) => {
+      try {
+        const u = new URL(e.data?.url, window.location.origin);
+        if (u.searchParams.get("issue")) open("issue", { id: Number(u.searchParams.get("issue")) });
+        if (u.searchParams.get("session")) open("session", { id: u.searchParams.get("session") });
+      } catch { /* not ours */ }
+    };
+    navigator.serviceWorker?.addEventListener("message", onMsg);
+    return () => navigator.serviceWorker?.removeEventListener("message", onMsg);
+  }, [open]);
 
-  const unleash = async () => {
-    const s = summon;
-    if (!s) return;
-    setSummon({ ...s, phase: "working" });
-    try {
-      const res = await fetch("/api/ghost", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ variantId: s.route.ghost.id, events: s.events }),
-      });
-      const data = await res.json();
-      setFixedIds((prev) => new Set([...prev, ...s.events.map((e) => e.id)]));
-      setSummon(null);
-      setGhostColor(GHOST_IDLE);
-      setGhostReportData(data);
-      openWindow("ghost-report");
-    } catch (err) {
-      setSummon(null);
-      setGhostColor(GHOST_IDLE);
+  // one stable `wm` per window so app effects depending on it do not re-run every render
+  const wmCache = useRef(new Map());
+  const wmFor = (id) => {
+    let wm = wmCache.current.get(id);
+    if (!wm) {
+      wm = {
+        open,
+        close: () => close(id),
+        setTitle: (title) => setWindows((ws) => ws.map((w) => (w.id === id && w.title !== title ? { ...w, title: String(title).slice(0, 80) } : w))),
+      };
+      wmCache.current.set(id, wm);
     }
+    return wm;
   };
+  const desktopWm = useMemo(() => ({ open, close: () => {}, setTitle: () => {} }), [open]);
 
-  const onGhostDown = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragRef.current = true;
-    setGhostDrag(true);
-  };
-  const onDesktopMove = (e) => {
-    if (!ghostDrag || !desktopRef.current) return;
-    const r = desktopRef.current.getBoundingClientRect();
-    setGhostPos({ x: e.clientX - r.left - 20, y: e.clientY - r.top - 20 });
-    // highlight the drop target under the ghost
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    const winEl = el && el.closest ? el.closest("[data-window-id]") : null;
-    const iconEl = el && el.closest ? el.closest("[data-icon-id]") : null;
-    const t = (winEl && winEl.dataset.windowId) || (iconEl && iconEl.dataset.iconId);
-    const valid = t === "pages" || t === "traces" || t === "recycle";
-    setHotTarget(valid ? t : null);
-  };
-  const onDesktopUp = (e) => {
-    if (!ghostDrag) return;
-    setGhostDrag(false);
-    dragRef.current = false;
-    setHotTarget(null);
-    setGhostPos(ghostHome(desktopRef.current));
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    const winEl = el && el.closest ? el.closest("[data-window-id]") : null;
-    const iconEl = el && el.closest ? el.closest("[data-icon-id]") : null;
-    const target = (winEl && winEl.dataset.windowId) || (iconEl && iconEl.dataset.iconId);
-    if (target === "pages" || target === "traces" || target === "recycle") {
-      if (iconEl && !windows.some((w) => w.id === target)) openApp(target);
-      summonGhost(target);
-    }
-  };
+  const pagesBadge = overview.data?.unread_pages || 0;
 
-  const doShutdown = () => {
-    setShowShutdownConfirm(false);
-    setStartOpen(false);
-    setShutDown(true);
-  };
 
   return (
     <>
-      <div
-        ref={desktopRef}
-        className="desktop"
-        onClick={() => setSelectedIcon(null)}
-        onPointerMove={onDesktopMove}
-        onPointerUp={onDesktopUp}
-      >
+      <div ref={desktopRef} className="desktop" onClick={() => { setSelectedIcon(null); setStartOpen(false); }}>
         <div className="icons">
-          {ICONS.map((ic) => (
+          {DESKTOP_ICONS.map(([id, text]) => (
             <DesktopIcon
-              key={ic.id}
-              id={ic.id}
-              label={ic.label}
-              glyph={glyphs[ic.glyph]}
-              selected={selectedIcon === ic.id}
-              hot={hotTarget === ic.id}
-              badge={ic.id === "pages" ? feedEvents.filter((e) => e.paged).length : 0}
-              onClick={(e) => { e.stopPropagation(); setSelectedIcon(ic.id); }}
-              onDoubleClick={() => openApp(ic.id)}
+              key={id} id={id} label={text} glyph={glyph(id, 40)}
+              selected={selectedIcon === id} hot={hotTarget === id}
+              badge={id === "pages" ? pagesBadge : 0}
+              onClick={(e) => { e.stopPropagation(); setSelectedIcon(id); }}
+              onDoubleClick={() => open(id)}
             />
           ))}
         </div>
 
-        {windows.map((w) => (
-          <Window
-            key={w.id}
-            id={w.id}
-            title={w.title}
-            icon={glyphs[w.iconKey]}
-            x={w.x} y={w.y} w={w.w} h={w.h} z={w.z}
-            focused={activeId === w.id}
-            minimized={w.minimized}
-            maximized={w.maximized}
-            hot={hotTarget === w.id}
-            onFocus={focusWindow}
-            onClose={closeWindow}
-            onMinimize={minimizeWindow}
-            onMaximize={maximizeWindow}
-          >
-            {contentFor(w.id)}
-          </Window>
-        ))}
+        {windows.map((w) => {
+          const App = APPS[w.app].C;
+          return (
+            <Window
+              key={w.id} id={w.id} app={w.app} title={w.title} icon={glyph(w.iconKey, 16)}
+              x={w.x} y={w.y} w={w.w} h={w.h} z={w.z}
+              focused={activeId === w.id} minimized={w.minimized} maximized={w.maximized} hot={hotTarget === w.id}
+              onFocus={focus} onClose={close} onMinimize={minimize} onMaximize={maximize}
+            >
+              <App wm={wmFor(w.id)} params={w.params} nonce={w.nonce} {...(w.app === "recycle" ? { onEmptyChange: setBinCount } : {})} />
+            </Window>
+          );
+        })}
 
-        {ghostPos && (
-          <Ghost
-            x={ghostPos.x}
-            y={ghostPos.y}
-            color={ghostColor}
-            dragging={ghostDrag}
-            hot={!!hotTarget}
-            working={!!(summon && summon.phase === "working")}
-            onPointerDown={onGhostDown}
-          />
-        )}
-
-        {summon && (
-          <GhostDialog
-            summon={summon}
-            onUnleash={unleash}
-            onDismiss={() => { setSummon(null); setGhostColor(GHOST_IDLE); }}
-          />
-        )}
+        <GhostAssistant
+          wm={desktopWm} desktopRef={desktopRef} ghosts={meta.data?.ghosts || []}
+          autoMode={!!ghostSettings?.autoMode} repoConfigured={!!ghostSettings?.repoPath}
+          onSettingsChanged={meta.reload} setHotTarget={setHotTarget}
+        />
 
         {startOpen && (
           <div className="start-menu raised" onClick={(e) => e.stopPropagation()}>
             <div className="side">signal98</div>
             <div className="items">
-              {ICONS.map((ic) => (
-                <div key={ic.id} className="start-item" onClick={() => { openApp(ic.id); setStartOpen(false); }}>
-                  <span className="glyph">{glyphs[ic.glyph]}</span>
-                  {ic.label}
+              {DESKTOP_ICONS.map(([id, text]) => (
+                <div key={id} className="start-item" onClick={() => open(id)}>
+                  <span className="glyph">{glyph(id, 22)}</span>{text}
                 </div>
               ))}
               <div className="start-sep" />
-              <div className="start-item" onClick={() => { setStartOpen(false); setShowShutdownConfirm(true); }}>
-                <span className="glyph"><Exe /></span>
-                Shut Down...
+              <div className="start-item" onClick={() => { setStartOpen(false); onToggleTheme(); }}>
+                <span className="glyph"><Exe size={22} /></span>Switch to modern dashboard
+              </div>
+              <div className="start-item" onClick={() => { setStartOpen(false); setConfirmShutdown(true); }}>
+                <span className="glyph"><Exe size={22} /></span>Shut Down...
               </div>
             </div>
           </div>
         )}
 
-        {showShutdownConfirm && (
+        {confirmShutdown && (
           <div className="dialog-veil">
             <div className="dialog raised">
               <div className="title-bar"><span className="ttitle">Shut Down Windows</span></div>
               <div className="dbody">
-                <span style={{ fontSize: 28 }}>⚠️</span>
-                <span>Are you sure you want to shut down?<br /><br />The ghosts will miss you.</span>
+                <GhostGlyph size={36} />
+                <span>Are you sure you want to shut down?<br /><br />Monitoring keeps running on the server. The ghost will miss you.</span>
               </div>
               <div className="dbuttons">
-                <button className="btn98" onClick={doShutdown}>Yes</button>
-                <button className="btn98" onClick={() => setShowShutdownConfirm(false)}>No</button>
+                <button className="btn98" onClick={() => { setConfirmShutdown(false); setShutDown(true); }}>Yes</button>
+                <button className="btn98" onClick={() => setConfirmShutdown(false)}>No</button>
               </div>
             </div>
           </div>
@@ -337,11 +236,10 @@ export default function Desktop() {
       </div>
 
       <Taskbar
-        windows={windows.map((w) => ({ ...w, icon: glyphs[w.iconKey] }))}
-        activeId={activeId}
-        startOpen={startOpen}
-        onStart={() => setStartOpen((s) => !s)}
-        onTaskClick={toggleMinimize}
+        windows={windows.map((w) => ({ ...w, icon: glyph(w.iconKey, 16) }))}
+        activeId={activeId} startOpen={startOpen} onStart={() => setStartOpen((s) => !s)} onTaskClick={taskClick}
+        overview={overview.data}
+        onTray={(what) => (what === "pages" ? open("pages") : what === "theme" ? onToggleTheme() : open("settings", { tab: "jev" }))}
       />
 
       {shutDown && (

@@ -1,0 +1,45 @@
+/* Desktop shell: icon grid, tray, resize grip, the ghost and its speech bubble. */
+.icons { flex-wrap: wrap; align-content: flex-start; max-height: calc(100vh - 54px); gap: 14px 6px; }
+.task-btns { display: flex; gap: 3px; flex: 1; min-width: 0; overflow: hidden; }
+.task-btn { min-width: 0; flex: 0 1 160px; }
+.task-btn .tlabel { overflow: hidden; text-overflow: ellipsis; }
+.window-body { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+
+.tray { gap: 4px; padding: 0 8px 0 4px; white-space: nowrap; }
+.tray-item { display: inline-flex; align-items: center; gap: 4px; padding: 1px 5px; background: none; border: 1px solid transparent; cursor: default; }
+button.tray-item:hover { border-color: #fff #808080 #808080 #fff; }
+.tray-page { font-weight: bold; color: #a00000; }
+.dot { display: inline-block; width: 7px; height: 7px; border: 1px solid rgba(0,0,0,.55); }
+@keyframes s98-blink { 50% { opacity: .25; } }
+.dot.blink { animation: s98-blink 1s steps(2) infinite; }
+
+.resize-grip {
+  position: absolute; right: 2px; bottom: 2px; width: 13px; height: 13px; cursor: nwse-resize; z-index: 3;
+  background:
+    linear-gradient(135deg, transparent 0 45%, #fff 45% 52%, #808080 52% 62%, transparent 62% 70%, #fff 70% 77%, #808080 77% 87%, transparent 87%);
+}
+
+.ghost { position: absolute; cursor: grab; touch-action: none; filter: drop-shadow(2px 2px 0 rgba(0,0,0,.45)); animation: ghost-float 2.4s ease-in-out infinite; }
+.ghost.excited { animation: ghost-hot .6s ease-in-out infinite; filter: drop-shadow(2px 2px 0 rgba(0,0,0,.45)) drop-shadow(0 0 12px #fff); }
+.ghost.busy { animation: ghost-busy .5s steps(2) infinite; }
+.ghost.auto { filter: drop-shadow(2px 2px 0 rgba(0,0,0,.45)) drop-shadow(0 0 6px #2aff5a); }
+.ghost-label { text-align: center; color: #fff; font-size: 10px; text-shadow: 1px 1px 0 #000; margin-top: 2px; white-space: nowrap; }
+@keyframes ghost-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes ghost-busy { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-10px) scale(1.12); } }
+@keyframes ghost-hot { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-4px) scale(1.15); } }
+@media (prefers-reduced-motion: reduce) { .ghost, .dot.blink { animation: none !important; } }
+
+/* Clippy's yellow note */
+/* sits above-left of the ghost so the sprite itself stays visible */
+.ghost-bubble {
+  position: absolute; width: 310px; margin: 0 64px 34px 0; background: #ffffe1; border: 1px solid #000; border-radius: 8px;
+  padding: 9px 11px 8px; box-shadow: 3px 3px 0 rgba(0,0,0,.35); line-height: 1.4;
+}
+.gb-title { font-weight: bold; font-size: 12px; margin-bottom: 3px; }
+.gb-text { font-family: "Courier New", monospace; margin-bottom: 4px; max-height: 96px; overflow: auto; word-break: break-word; }
+.gb-meta { color: #555; margin-bottom: 3px; }
+.gb-status { font-family: "Courier New", monospace; color: #004000; margin: 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gb-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+.ghost-menu { position: absolute; width: 230px; padding: 3px; }
+.ghost-menu .start-item { padding: 4px 8px 4px 4px; font-size: 11px; }
+.gm-check { display: inline-block; width: 16px; text-align: center; font-weight: bold; }

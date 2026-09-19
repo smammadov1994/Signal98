@@ -1,5 +1,7 @@
-// The 10 ghost variants. Classic LLM (DeepSeek) under the hood.
-// JEV never judges here — it only routes: it picks which ghost to summon.
+// The 10 ghost variants: generative-model personas (see lib/ghost.js for providers).
+// JEV never writes fixes — it routes: the `responder` Choice question in lib/questions.js
+// picks which ghost to summon. `match`/`explain` are the old rule-based router, kept for
+// the multi-issue "drag the ghost onto a window" summon.
 // Each ghost differs in permissions, system prompt, specialty and sampling.
 
 export const GHOSTS = [

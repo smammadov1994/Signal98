@@ -1,1 +1,19 @@
-{"dependencies":{"next":"15.5.4","react":"19.1.1","react-dom":"19.1.1"},"name":"signal-desktop","private":true,"scripts":{"build":"next build","dev":"next dev","start":"next start"},"version":"0.1.0"}
+{
+  "name": "signal-desktop",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "test": "node --test --test-reporter=spec \"test/*.test.js\""
+  },
+  "dependencies": {
+    "next": "15.5.4",
+    "nodemailer": "^6.9.16",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "web-push": "^3.6.7"
+  }
+}

@@ -1,16 +1,45 @@
 {
   "name": "signal98",
-  "version": "0.1.0",
-  "description": "JEV-powered error and event capture SDK. Install it, call init(), and your app's errors are caught and semantically judged at ingest.",
+  "version": "0.2.0",
+  "description": "JEV-powered error, event and performance capture SDK. Install it, call init(), and your app's errors are caught and semantically judged at ingest.",
   "type": "module",
   "main": "./src/index.js",
+  "module": "./src/index.js",
+  "types": "./index.d.ts",
+  "unpkg": "./dist/signal98.min.js",
+  "jsdelivr": "./dist/signal98.min.js",
+  "sideEffects": false,
   "exports": {
-    ".": "./src/index.js",
-    "./browser": "./src/browser.js",
-    "./node": "./src/node.js",
-    "./react": "./src/react.js"
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./browser": {
+      "types": "./index.d.ts",
+      "default": "./src/browser.js"
+    },
+    "./node": {
+      "types": "./index.d.ts",
+      "default": "./src/node.js"
+    },
+    "./react": {
+      "types": "./react.d.ts",
+      "default": "./src/react.js"
+    },
+    "./dist/*": "./dist/*",
+    "./package.json": "./package.json"
   },
+  "files": [
+    "src",
+    "dist",
+    "index.d.ts",
+    "react.d.ts",
+    "README.md"
+  ],
   "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "peerDependencies": {
     "react": ">=16"
   },
@@ -19,7 +48,13 @@
       "optional": true
     }
   },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  },
   "scripts": {
+    "build": "node build.js",
+    "test": "node --test test/*.test.js",
+    "prepublishOnly": "npm run build && npm test",
     "demo:server": "node example/server.js",
     "demo:node": "node example/node-demo.js"
   }

@@ -1,14 +1,12 @@
 import "./globals.css";
+import Shell from "./signal";
 
-export const metadata = {
-  title: "signal98 — error playground",
-  description: "Set off errors, watch them get judged in the raw feed.",
-};
+export const metadata = { title: "ghost mart — signal98 demo shop" };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body><Shell>{children}</Shell></body>
     </html>
   );
 }
