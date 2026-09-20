@@ -4,7 +4,7 @@ Signal98 captures errors from your app, groups repeat occurrences into issues, a
 
 The modern interface is the default. The ghost icon and sidebar stay visible; Windows 98 styling is available through a switch.
 
-![Signal98 dashboard showing error activity, issue priorities, and the Ghost assistant](docs/images/signal98-dashboard.png)
+![Signal98 dashboard showing error activity, issue priorities, and the Ghost assistant](docs/images/signal98-dashboard.jpg)
 
 *The live dashboard with a captured demo error.*
 
