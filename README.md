@@ -4,6 +4,10 @@ Signal98 captures errors from your app, groups repeat occurrences into issues, a
 
 The modern interface is the default. The ghost icon and sidebar stay visible; Windows 98 styling is available through a switch.
 
+![Signal98 dashboard showing error activity, issue priorities, and the Ghost assistant](docs/images/signal98-dashboard.png)
+
+*The live dashboard with a captured demo error.*
+
 ## Install and start Signal98
 
 This repository contains the server and the SDK. You run your own Signal98 instance; there is no separate Signal98 account or hosted key-issuing service required for this setup.
